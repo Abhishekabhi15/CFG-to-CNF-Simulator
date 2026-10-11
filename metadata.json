@@ -1,0 +1,6 @@
+{
+  "name": "CFG to Chomsky Normal Form Simulator",
+  "description": "Interactive educational Context-Free Grammar (CFG) to Chomsky Normal Form (CNF) conversion simulator with step-by-step mathematical transformations, rule diffs, and verification.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
