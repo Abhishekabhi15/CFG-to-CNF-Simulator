@@ -48,8 +48,14 @@ export const CompleteGrammarView: React.FC<CompleteGrammarViewProps> = ({
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100">
         <div>
           <div className="flex items-center space-x-2">
-            <span className="text-xs font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
-              Conversion Completed
+            <span
+              className={`text-xs font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full ${
+                verification.isValidCNF
+                  ? 'bg-emerald-100 text-emerald-800'
+                  : 'bg-red-100 text-red-800'
+              }`}
+            >
+              {verification.isValidCNF ? 'Conversion Completed' : 'Verification Incomplete'}
             </span>
             <span className="text-xs text-slate-400 font-mono">
               {summary.totalSteps} Mathematical Steps
@@ -142,55 +148,84 @@ export const CompleteGrammarView: React.FC<CompleteGrammarViewProps> = ({
 
       {/* Conversion Summary Statistics */}
       <div className="space-y-3">
-        <div className="flex items-center space-x-2">
-          <BarChart3 className="w-4 h-4 text-indigo-600" />
-          <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">
-            Conversion Metrics &amp; Rule Statistics
-          </h3>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="flex items-center space-x-2">
+            <BarChart3 className="w-4 h-4 text-indigo-600" />
+            <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">
+              Canonical Grammar Metrics &amp; Rule Statistics
+            </h3>
+          </div>
+          <span className="text-[11px] text-slate-500 font-medium">
+            Calculated from canonical production set comparison
+          </span>
         </div>
 
+        {/* Canonical Rules Comparison Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-          <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-center">
-            <div className="text-[11px] font-semibold text-slate-500">Original Variables</div>
-            <div className="text-lg font-bold text-slate-900 mt-0.5">
-              {summary.originalVariables.length}
-            </div>
-          </div>
-
+          {/* 1. Original Rules */}
           <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-center">
             <div className="text-[11px] font-semibold text-slate-500">Original Rules</div>
             <div className="text-lg font-bold text-slate-900 mt-0.5">
               {summary.originalProductionCount}
             </div>
+            <div className="text-[10px] text-slate-400 mt-0.5">unique in G</div>
           </div>
 
-          <div className="bg-indigo-50/60 border border-indigo-200 rounded-xl p-3 text-center">
-            <div className="text-[11px] font-semibold text-indigo-700">Final Variables</div>
-            <div className="text-lg font-bold text-indigo-950 mt-0.5">
-              {summary.finalVariables.length}
-            </div>
-          </div>
-
+          {/* 2. Final CNF Rules */}
           <div className="bg-indigo-50/60 border border-indigo-200 rounded-xl p-3 text-center">
             <div className="text-[11px] font-semibold text-indigo-700">Final CNF Rules</div>
             <div className="text-lg font-bold text-indigo-950 mt-0.5">
               {summary.finalProductionCount}
             </div>
+            <div className="text-[10px] text-indigo-600 mt-0.5">unique in G&apos;</div>
           </div>
 
+          {/* 3. Net Rule Change */}
+          <div className="bg-purple-50/60 border border-purple-200 rounded-xl p-3 text-center">
+            <div className="text-[11px] font-semibold text-purple-700">Net Rule Change</div>
+            <div className="text-lg font-bold text-purple-950 mt-0.5">
+              {summary.netRuleChange >= 0 ? `+${summary.netRuleChange}` : summary.netRuleChange}
+            </div>
+            <div className="text-[10px] text-purple-600 mt-0.5">Final − Original</div>
+          </div>
+
+          {/* 4. Productions Added */}
           <div className="bg-emerald-50/60 border border-emerald-200 rounded-xl p-3 text-center">
-            <div className="text-[11px] font-semibold text-emerald-700">Rules Added</div>
+            <div className="text-[11px] font-semibold text-emerald-700">Productions Added</div>
             <div className="text-lg font-bold text-emerald-800 mt-0.5">
-              +{summary.totalAdded}
+              +{summary.productionsAddedCount}
             </div>
+            <div className="text-[10px] text-emerald-600 mt-0.5">in G&apos;, absent in G</div>
           </div>
 
+          {/* 5. Productions Removed */}
           <div className="bg-red-50/60 border border-red-200 rounded-xl p-3 text-center">
-            <div className="text-[11px] font-semibold text-red-700">Rules Removed</div>
+            <div className="text-[11px] font-semibold text-red-700">Productions Removed</div>
             <div className="text-lg font-bold text-red-800 mt-0.5">
-              -{summary.totalRemoved}
+              -{summary.productionsRemovedCount}
             </div>
+            <div className="text-[10px] text-red-600 mt-0.5">in G, absent in G&apos;</div>
           </div>
+
+          {/* 6. Retained Rules */}
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-center">
+            <div className="text-[11px] font-semibold text-slate-500">Rules Retained</div>
+            <div className="text-lg font-bold text-slate-800 mt-0.5">
+              {summary.productionsRetainedCount}
+            </div>
+            <div className="text-[10px] text-slate-400 mt-0.5">preserved in both</div>
+          </div>
+        </div>
+
+        {/* Separate Transformation Events Note */}
+        <div className="bg-slate-50 border border-slate-200/80 rounded-xl px-4 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between text-xs text-slate-600 gap-1.5">
+          <span className="font-semibold text-slate-700 flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-indigo-500 inline-block"></span>
+            Pipeline Transformation Events:
+          </span>
+          <span className="text-slate-500">
+            {summary.transformationEventsAdded} intermediate addition events &bull; {summary.transformationEventsRemoved} intermediate removal events across {summary.totalSteps} sequential steps
+          </span>
         </div>
       </div>
 
@@ -204,7 +239,7 @@ export const CompleteGrammarView: React.FC<CompleteGrammarViewProps> = ({
                 Independent CNF Verification Checklist
               </h3>
               <p className="text-xs text-slate-500">
-                Rigorous mathematical check evaluating every production against formal CNF constraints.
+                Rigorous mathematical check evaluating every production in G&apos; against formal CNF constraints.
               </p>
             </div>
           </div>
@@ -216,7 +251,7 @@ export const CompleteGrammarView: React.FC<CompleteGrammarViewProps> = ({
                 : 'bg-red-50 text-red-700 border-red-200'
             }`}
           >
-            {verification.isValidCNF ? 'VALID CNF CERTIFIED' : 'INVALID CNF'}
+            {verification.isValidCNF ? 'VALID CNF CERTIFIED' : 'CNF VERIFICATION FAILED'}
           </span>
         </div>
 

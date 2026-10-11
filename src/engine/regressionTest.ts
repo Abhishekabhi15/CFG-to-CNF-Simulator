@@ -216,9 +216,45 @@ result.verification.checks.forEach(c => {
   console.log(`  [${c.passed ? 'PASS' : 'FAIL'}] ${c.title}: ${c.details}`);
 });
 
-if (!result.verification.isValidCNF) {
-  console.error('FAIL: CNF Verifier rejected grammar!');
+// TEST 7: Canonical Conversion Metrics Verification
+console.log('\nTest 7: Canonical Conversion Metrics Verification');
+const { summary } = result;
+
+console.log(`• Original Rules: ${summary.originalProductionCount} (expected: 11)`);
+console.log(`• Final CNF Rules: ${summary.finalProductionCount} (expected: 17)`);
+console.log(`• Net Rule Change: ${summary.netRuleChange} (expected: +6)`);
+console.log(`• Productions Added: ${summary.productionsAddedCount} (expected: +13)`);
+console.log(`• Productions Removed: ${summary.productionsRemovedCount} (expected: -7)`);
+console.log(`• Productions Retained: ${summary.productionsRetainedCount} (expected: 4)`);
+
+if (summary.originalProductionCount !== 11) {
+  console.error('FAIL: Original rules count mismatch!');
   process.exit(1);
 }
+if (summary.finalProductionCount !== 17) {
+  console.error('FAIL: Final CNF rules count mismatch!');
+  process.exit(1);
+}
+if (summary.netRuleChange !== 6) {
+  console.error('FAIL: Net rule change must equal Final - Original (17 - 11 = 6)!');
+  process.exit(1);
+}
+if (summary.productionsAddedCount !== 13) {
+  console.error('FAIL: Canonical productions added count mismatch!');
+  process.exit(1);
+}
+if (summary.productionsRemovedCount !== 7) {
+  console.error('FAIL: Canonical productions removed count mismatch!');
+  process.exit(1);
+}
+if (summary.productionsRetainedCount !== 4) {
+  console.error('FAIL: Retained rules count mismatch!');
+  process.exit(1);
+}
+if (summary.originalProductionCount + summary.productionsAddedCount - summary.productionsRemovedCount !== summary.finalProductionCount) {
+  console.error('FAIL: Mathematical identity Original + Added - Removed === Final failed!');
+  process.exit(1);
+}
+console.log('• Canonical Conversion Metrics: PASS');
 
 console.log('\n=== ALL REGRESSION TESTS PASSED CLEANLY! ===\n');

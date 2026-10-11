@@ -79,14 +79,20 @@ export interface ConversionSummary {
   originalVariables: string[];
   originalTerminals: string[];
   originalStartSymbol: string;
-  originalProductionCount: number;
+  originalProductionCount: number; // Original unique production alternatives
   finalVariables: string[];
   finalTerminals: string[];
   finalStartSymbol: string;
-  finalProductionCount: number;
-  totalAdded: number;
-  totalRemoved: number;
+  finalProductionCount: number; // Final CNF unique production alternatives
+  netRuleChange: number; // Final CNF Rules − Original Rules
+  productionsAddedCount: number; // In final grammar, absent from original
+  productionsRemovedCount: number; // In original grammar, absent from final
+  productionsRetainedCount: number; // In both original and final grammar
+  totalAdded: number; // Same as productionsAddedCount for backwards compatibility
+  totalRemoved: number; // Same as productionsRemovedCount for backwards compatibility
   totalSteps: number;
+  transformationEventsAdded: number; // Sum of addition events across all pipeline steps
+  transformationEventsRemoved: number; // Sum of removal events across all pipeline steps
   emptyStringAccepted: boolean;
 }
 

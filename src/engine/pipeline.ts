@@ -70,14 +70,20 @@ export function runConversionPipeline(inputGrammar: Grammar): PipelineResult {
   // Independent CNF Verification
   const verification = verifyCnf(finalGrammar, emptyStringAccepted);
 
-  // Overall statistics calculation
-  let totalAdded = 0;
-  let totalRemoved = 0;
+  // Canonical comparison: diff between original grammar and final grammar
+  const canonicalDiff = diffProductions(inputGrammar.productions, finalGrammar.productions);
+  const productionsAddedCount = canonicalDiff.added.length;
+  const productionsRemovedCount = canonicalDiff.removed.length;
+  const productionsRetainedCount = canonicalDiff.unchanged.length;
+  const netRuleChange = finalGrammar.productions.length - inputGrammar.productions.length;
+
+  // Separate transformation-event statistics across pipeline steps
+  let transformationEventsAdded = 0;
+  let transformationEventsRemoved = 0;
   allSteps.forEach(s => {
-    // Exclude step 0 initial load from delta stats
     if (s.stageId !== 'input') {
-      totalAdded += s.addedProductions.length;
-      totalRemoved += s.removedProductions.length;
+      transformationEventsAdded += s.addedProductions.length;
+      transformationEventsRemoved += s.removedProductions.length;
     }
   });
 
@@ -90,9 +96,15 @@ export function runConversionPipeline(inputGrammar: Grammar): PipelineResult {
     finalTerminals: finalGrammar.terminals,
     finalStartSymbol: finalGrammar.startSymbol,
     finalProductionCount: finalGrammar.productions.length,
-    totalAdded,
-    totalRemoved,
+    netRuleChange,
+    productionsAddedCount,
+    productionsRemovedCount,
+    productionsRetainedCount,
+    totalAdded: productionsAddedCount,
+    totalRemoved: productionsRemovedCount,
     totalSteps: allSteps.length,
+    transformationEventsAdded,
+    transformationEventsRemoved,
     emptyStringAccepted
   };
 
