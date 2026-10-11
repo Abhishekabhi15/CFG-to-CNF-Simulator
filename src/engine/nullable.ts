@@ -258,6 +258,11 @@ export function eliminateNullProductions(
       const diff = diffProductions(beforeState.productions, currentGrammar.productions);
       const omittedVars = nullableIndices.map(i => prod.rhs[i]).join(', ');
 
+      let derivationNote = '';
+      if (prod.rhs.length > 2 && addedThisStep.some(p => p.rhs.length === 2)) {
+        derivationNote = `\n\nDerivation origin note: For multi-symbol production ${formatProduction(prod)}, omitting nullable variable(s) produces ${addedThisStep.map(p => formatProduction(p)).join(', ')}. This production originates strictly from nullable-variable expansion (capturing the derivation branch where nullable occurrences derive ε) and is preserved independently of subsequent binarization.`;
+      }
+
       steps.push({
         id: currentStepId++,
         stageId: 'null_elimination',
@@ -266,7 +271,7 @@ export function eliminateNullProductions(
         subStep: 'Expand Nullable Rule',
         title: `Expand Nullable Alternatives for ${formatProduction(prod)}`,
         mathGoal: 'Generate all non-empty alternatives where nullable variables may derive ε.',
-        explanation: `Rule ${formatProduction(prod)} contains nullable variable(s): {${omittedVars}}. By considering every permutation where each nullable symbol derives ε, we introduce ${addedThisStep.length} new production(s): ${addedThisStep.map(p => formatProduction(p)).join(', ')}.`,
+        explanation: `Rule ${formatProduction(prod)} contains nullable variable(s): {${omittedVars}}. By considering every permutation where each nullable symbol derives ε, we introduce ${addedThisStep.length} new production(s): ${addedThisStep.map(p => formatProduction(p)).join(', ')}.${derivationNote}`,
         examinedRule: prod,
         examinedVariable: prod.lhs,
         beforeGrammar: beforeState,

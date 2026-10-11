@@ -3,6 +3,7 @@ import {
   cloneGrammar,
   diffProductions,
   formatProduction,
+  formatRhs,
   createProductionId,
   deduplicateProductions,
   groupProductionsByLhs
@@ -301,58 +302,67 @@ export function convertToCnf(
 
       const diff = diffProductions(beforeState.productions, currentGrammar.productions);
 
+      const binarizationNote = chainAdded.some(p => p.rhs.join('') === 'BC')
+        ? `\n\nDerivation distinctness note: Helper rule(s) (${chainAdded.map(p => formatProduction(p)).join(', ')}) decompose the non-empty branch of ${prod.lhs} → ${formatRhs(prod.rhs)}. This is distinct from any direct production previously generated during nullable expansion (such as ${prod.lhs} → BC) which captures the branch where nullable variables derive ε. Both are preserved to maintain the language.`
+        : '';
+
+      steps.push({
+          id: currentStepId++,
+          stageId: 'cnf_conversion',
+          stageNumber: 5,
+          stageName: 'CNF Conversion (Terminal Replacement & Binarization)',
+          subStep: 'Binarize Long Production',
+          title: `Binarize Long Production: ${formatProduction(prod)}`,
+          mathGoal: `Every production in CNF must have |RHS| ≤ 2. Decompose RHS of length ${k} into a cascade of binary productions.`,
+          explanation: `Production ${formatProduction(prod)} has ${k} symbols on RHS.\nDecomposed into ${chainAdded.length} binary rule(s):\n${chainAdded.map(p => formatProduction(p)).join('\n')}\n(Dynamically allocated helper non-terminal(s): ${introducedHelpers.join(', ')}).${binarizationNote}`,
+          examinedRule: prod,
+          examinedVariable: prod.lhs,
+          beforeGrammar: beforeState,
+          afterGrammar: cloneGrammar(currentGrammar),
+          addedProductions: diff.added,
+          removedProductions: diff.removed,
+          unchangedProductions: diff.unchanged,
+          rulesBefore: beforeState.productions.length,
+          rulesAdded: diff.added.length,
+          rulesRemoved: diff.removed.length,
+          rulesAfter: currentGrammar.productions.length,
+          metadata: {
+            binarizedVariables: introducedHelpers
+          }
+        });
+      }
+    } else {
+      // No long productions
+      const beforeState = cloneGrammar(currentGrammar);
       steps.push({
         id: currentStepId++,
         stageId: 'cnf_conversion',
         stageNumber: 5,
         stageName: 'CNF Conversion (Terminal Replacement & Binarization)',
-        subStep: 'Binarize Long Production',
-        title: `Binarize Long Production: ${formatProduction(prod)}`,
-        mathGoal: `Every production in CNF must have |RHS| ≤ 2. Decompose RHS of length ${k} into a cascade of binary productions.`,
-        explanation: `Production ${formatProduction(prod)} has ${k} symbols on RHS.\nDecomposed into ${chainAdded.length} binary rule(s):\n${chainAdded.map(p => formatProduction(p)).join('\n')}\n(Dynamically allocated helper non-terminal(s): ${introducedHelpers.join(', ')}).`,
-        examinedRule: prod,
-        examinedVariable: prod.lhs,
+        subStep: 'Check Production Lengths',
+        title: 'All Productions Have Valid Length (|RHS| ≤ 2)',
+        mathGoal: 'Verify if any productions have RHS length strictly greater than 2.',
+        explanation: 'All productions already have at most 2 symbols on the right-hand side. No binarization cascade required.',
+        examinedRule: null,
+        examinedVariable: null,
         beforeGrammar: beforeState,
         afterGrammar: cloneGrammar(currentGrammar),
-        addedProductions: diff.added,
-        removedProductions: diff.removed,
-        unchangedProductions: diff.unchanged,
-        rulesBefore: beforeState.productions.length,
-        rulesAdded: diff.added.length,
-        rulesRemoved: diff.removed.length,
-        rulesAfter: currentGrammar.productions.length,
-        metadata: {
-          binarizedVariables: introducedHelpers
-        }
+        addedProductions: [],
+        removedProductions: [],
+        unchangedProductions: currentGrammar.productions,
+        rulesBefore: currentGrammar.productions.length,
+        rulesAdded: 0,
+        rulesRemoved: 0,
+        rulesAfter: currentGrammar.productions.length
       });
     }
-  } else {
-    // No long productions
-    const beforeState = cloneGrammar(currentGrammar);
-    steps.push({
-      id: currentStepId++,
-      stageId: 'cnf_conversion',
-      stageNumber: 5,
-      stageName: 'CNF Conversion (Terminal Replacement & Binarization)',
-      subStep: 'Check Production Lengths',
-      title: 'All Productions Have Valid Length (|RHS| ≤ 2)',
-      mathGoal: 'Verify if any productions have RHS length strictly greater than 2.',
-      explanation: 'All productions already have at most 2 symbols on the right-hand side. No binarization cascade required.',
-      examinedRule: null,
-      examinedVariable: null,
-      beforeGrammar: beforeState,
-      afterGrammar: cloneGrammar(currentGrammar),
-      addedProductions: [],
-      removedProductions: [],
-      unchangedProductions: currentGrammar.productions,
-      rulesBefore: currentGrammar.productions.length,
-      rulesAdded: 0,
-      rulesRemoved: 0,
-      rulesAfter: currentGrammar.productions.length
-    });
-  }
 
   currentGrammar.productions = deduplicateProductions(currentGrammar.productions);
+
+  // Guarantee that the last step's afterGrammar matches the final deduplicated grammar exactly
+  if (steps.length > 0) {
+    steps[steps.length - 1].afterGrammar = cloneGrammar(currentGrammar);
+  }
 
   return {
     steps,

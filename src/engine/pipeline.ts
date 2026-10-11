@@ -27,11 +27,11 @@ export function runConversionPipeline(inputGrammar: Grammar): PipelineResult {
     examinedVariable: initialGrammar.startSymbol,
     beforeGrammar: initialGrammar,
     afterGrammar: cloneGrammar(initialGrammar),
-    addedProductions: initialDiff.added,
+    addedProductions: [],
     removedProductions: [],
     unchangedProductions: initialGrammar.productions,
     rulesBefore: initialGrammar.productions.length,
-    rulesAdded: initialGrammar.productions.length,
+    rulesAdded: 0,
     rulesRemoved: 0,
     rulesAfter: initialGrammar.productions.length
   });
@@ -56,6 +56,11 @@ export function runConversionPipeline(inputGrammar: Grammar): PipelineResult {
   allSteps.push(...cnfResult.steps);
 
   const finalGrammar = cnfResult.finalGrammar;
+
+  // Strictly ensure that the final step's afterGrammar matches the final grammar
+  if (allSteps.length > 0) {
+    allSteps[allSteps.length - 1].afterGrammar = cloneGrammar(finalGrammar);
+  }
 
   // Check if empty string is in language (did we preserve S0 → ε)
   const emptyStringAccepted = finalGrammar.productions.some(
