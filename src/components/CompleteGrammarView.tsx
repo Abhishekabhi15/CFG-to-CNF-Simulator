@@ -264,7 +264,7 @@ export const CompleteGrammarView: React.FC<CompleteGrammarViewProps> = ({
                 Independent CNF Structural &amp; Syntax Verification
               </h3>
               <p className="text-xs text-slate-500">
-                Rigorous mathematical check evaluating every production in G&apos; against formal CNF syntax constraints.
+                Rigorous mathematical check evaluating every production in G&apos; against formal CNF syntax constraints. Validates rule syntax independently; language equivalence is verified separately below.
               </p>
             </div>
           </div>
