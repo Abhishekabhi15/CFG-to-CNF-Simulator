@@ -41,12 +41,20 @@ export function areProductionsEqual(p1: Production, p2: Production): boolean {
 }
 
 /**
- * Formats a production RHS array into a clean string (e.g. "A B" or "ε")
+ * Formats a production RHS array into a clean string (e.g. "AB", "XD", "AH1", or "ε")
  */
 export function formatRhs(rhs: string[]): string {
   if (!rhs || rhs.length === 0) return EPSILON;
-  if (rhs.length === 1 && isEpsilon(rhs[0])) return EPSILON;
-  return rhs.join(' ');
+  if (rhs.length === 1) {
+    return isEpsilon(rhs[0]) ? EPSILON : rhs[0];
+  }
+  // If symbols contain spaces, underscores, or length > 3, use space separation
+  const needsSpaces = rhs.some(s => s.includes(' ') || s.includes('_') || s.length > 3);
+  if (needsSpaces) {
+    return rhs.join(' ');
+  }
+  // Standard formal language theory concise concatenation (e.g. AB, XD, YB, AH1, BC)
+  return rhs.join('');
 }
 
 /**

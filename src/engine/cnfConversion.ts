@@ -3,16 +3,120 @@ import {
   cloneGrammar,
   diffProductions,
   formatProduction,
-  isEpsilon,
   createProductionId,
-  generateFreshVariable,
-  deduplicateProductions
+  deduplicateProductions,
+  groupProductionsByLhs
 } from './grammarUtils';
+
+// Preferred list of available non-terminal symbols for dynamic helper assignment
+const PREFERRED_HELPER_SYMBOLS = [
+  'X', 'Y', 'Z', 'P', 'Q', 'R', 'U', 'W', 'K', 'M', 'N', 'V', 'T', 'J'
+];
+
+/**
+ * Dynamically finds or creates a helper variable for a terminal symbol.
+ * - Reuses existing helper variable if already assigned in this conversion.
+ * - Reuses existing grammar variable if it exclusively generates this terminal (e.g. X → a exists).
+ * - Otherwise dynamically picks fresh candidate from preferred symbols [X, Y, Z, P, Q, R, U, W...].
+ * - Checks declared and generated variables to prevent collisions and protects startSymbol.
+ * - Falls back to N1, N2, Helper1 if preferred pool is exhausted.
+ */
+function getOrCreateTerminalHelper(
+  terminal: string,
+  currentGrammar: Grammar,
+  terminalHelpers: Map<string, string>
+): { helperVar: string; isNewRuleNeeded: boolean } {
+  // 1. If already mapped in this conversion session, reuse it
+  if (terminalHelpers.has(terminal)) {
+    return { helperVar: terminalHelpers.get(terminal)!, isNewRuleNeeded: false };
+  }
+
+  const varSet = new Set(currentGrammar.variables);
+  const startSymbol = currentGrammar.startSymbol;
+
+  // 2. Check if an existing variable in currentGrammar produces ONLY this terminal:
+  // e.g. V → [terminal] and has no other productions, and V !== startSymbol
+  const prodsByLhs = groupProductionsByLhs(currentGrammar.productions);
+  for (const [v, prods] of prodsByLhs.entries()) {
+    if (v === startSymbol) continue;
+    if (prods.length === 1 && prods[0].rhs.length === 1 && prods[0].rhs[0] === terminal) {
+      terminalHelpers.set(terminal, v);
+      return { helperVar: v, isNewRuleNeeded: false };
+    }
+  }
+
+  // 3. Find first unused symbol from preferred pool
+  for (const candidate of PREFERRED_HELPER_SYMBOLS) {
+    if (!varSet.has(candidate) && candidate !== startSymbol) {
+      terminalHelpers.set(terminal, candidate);
+      currentGrammar.variables.push(candidate);
+      return { helperVar: candidate, isNewRuleNeeded: true };
+    }
+  }
+
+  // 4. Fallback to N1, N2... or Helper1, Helper2... if single letters are exhausted
+  let counter = 1;
+  while (true) {
+    const candidate = `N${counter}`;
+    if (!varSet.has(candidate) && candidate !== startSymbol) {
+      terminalHelpers.set(terminal, candidate);
+      currentGrammar.variables.push(candidate);
+      return { helperVar: candidate, isNewRuleNeeded: true };
+    }
+    counter++;
+  }
+}
+
+/**
+ * Dynamically allocates a fresh helper variable for binarization cascades.
+ * Uses H1, H2... or available symbols (Z, P, Q, N1, N2...), checking against all declared
+ * and previously generated variables, and guarantees never colliding with startSymbol.
+ */
+function allocateBinarizationHelper(
+  currentGrammar: Grammar,
+  counter: number
+): string {
+  const varSet = new Set(currentGrammar.variables);
+  const startSymbol = currentGrammar.startSymbol;
+
+  // Preferred identifier pattern: H1, H2, etc. as shown in academic standard
+  const primaryCandidate = `H${counter}`;
+  if (!varSet.has(primaryCandidate) && primaryCandidate !== startSymbol) {
+    currentGrammar.variables.push(primaryCandidate);
+    return primaryCandidate;
+  }
+
+  // If H{counter} is occupied, try unused symbols from preferred pool
+  for (const candidate of PREFERRED_HELPER_SYMBOLS) {
+    if (!varSet.has(candidate) && candidate !== startSymbol) {
+      currentGrammar.variables.push(candidate);
+      return candidate;
+    }
+  }
+
+  // Fallback to N1, N2... or Helper1, Helper2...
+  let n = 1;
+  while (true) {
+    const fallbackN = `N${n}`;
+    if (!varSet.has(fallbackN) && fallbackN !== startSymbol) {
+      currentGrammar.variables.push(fallbackN);
+      return fallbackN;
+    }
+    const fallbackH = `Helper${n}`;
+    if (!varSet.has(fallbackH) && fallbackH !== startSymbol) {
+      currentGrammar.variables.push(fallbackH);
+      return fallbackH;
+    }
+    n++;
+  }
+}
 
 /**
  * Stage 5: CNF Conversion
  * 1. Terminal replacement in mixed productions (|RHS| >= 2 with terminals)
+ *    using dynamic helper variable naming (e.g. X, Y, Z, P, Q, R, U, W or existing V → a)
  * 2. Binarization of long productions (|RHS| > 2)
+ *    using dynamic, declared helper variables (e.g. H1, H2, N1)
  */
 export function convertToCnf(
   inputGrammar: Grammar,
@@ -31,20 +135,8 @@ export function convertToCnf(
   // ========================================================
   // PART 1: Terminal Replacement in Multi-Symbol Productions
   // ========================================================
-  // Terminal helper variables mapping: terminal -> helperVarName (e.g. 'a' -> 'T_a')
+  // Terminal helper variables mapping: terminal -> helperVarName (e.g. 'a' -> 'X')
   const terminalHelpers = new Map<string, string>();
-
-  // Helper function to get or create a helper variable for a terminal
-  const getHelperForTerminal = (t: string): string => {
-    if (terminalHelpers.has(t)) {
-      return terminalHelpers.get(t)!;
-    }
-    const baseName = `T_${t}`;
-    const freshVar = generateFreshVariable(baseName, currentGrammar.variables);
-    terminalHelpers.set(t, freshVar);
-    currentGrammar.variables.push(freshVar);
-    return freshVar;
-  };
 
   // Find all productions with |RHS| >= 2 that contain at least one terminal
   const multiProdsWithTerminals = currentGrammar.productions.filter(p => {
@@ -56,13 +148,33 @@ export function convertToCnf(
     for (const prod of multiProdsWithTerminals) {
       const beforeState = cloneGrammar(currentGrammar);
       const replacedTerminals: string[] = [];
+      const newHelperRulesAdded: Production[] = [];
 
       // Replace terminals in RHS
       const newRhs = prod.rhs.map(sym => {
         if (termSet.has(sym)) {
-          const helper = getHelperForTerminal(sym);
-          replacedTerminals.push(`${sym} → ${helper}`);
-          return helper;
+          const { helperVar, isNewRuleNeeded } = getOrCreateTerminalHelper(
+            sym,
+            currentGrammar,
+            terminalHelpers
+          );
+          replacedTerminals.push(`${sym} → ${helperVar}`);
+
+          if (isNewRuleNeeded) {
+            const helperRuleId = createProductionId(helperVar, [sym]);
+            const ruleExists = currentGrammar.productions.some(p => p.id === helperRuleId);
+            if (!ruleExists) {
+              const helperRule: Production = {
+                id: helperRuleId,
+                lhs: helperVar,
+                rhs: [sym]
+              };
+              currentGrammar.productions.push(helperRule);
+              newHelperRulesAdded.push(helperRule);
+            }
+          }
+
+          return helperVar;
         }
         return sym;
       });
@@ -78,22 +190,6 @@ export function convertToCnf(
       };
       currentGrammar.productions.push(newProd);
 
-      // Ensure helper productions T_x → x are present
-      const addedHelperRules: Production[] = [];
-      for (const [t, helperVar] of terminalHelpers.entries()) {
-        const helperRuleId = createProductionId(helperVar, [t]);
-        const exists = currentGrammar.productions.some(p => p.id === helperRuleId);
-        if (!exists) {
-          const helperRule: Production = {
-            id: helperRuleId,
-            lhs: helperVar,
-            rhs: [t]
-          };
-          currentGrammar.productions.push(helperRule);
-          addedHelperRules.push(helperRule);
-        }
-      }
-
       const diff = diffProductions(beforeState.productions, currentGrammar.productions);
 
       steps.push({
@@ -103,11 +199,11 @@ export function convertToCnf(
         stageName: 'CNF Conversion (Terminal Replacement & Binarization)',
         subStep: 'Replace Mixed Terminal',
         title: `Replace Terminals in Multi-Symbol Rule: ${formatProduction(prod)}`,
-        mathGoal: 'Chomsky Normal Form forbids mixing terminals in productions of length ≥ 2. Replace each terminal with a dedicated non-terminal.',
+        mathGoal: 'Chomsky Normal Form forbids mixing terminals in productions of length ≥ 2. Replace each terminal with a dynamically assigned non-terminal.',
         explanation: `Production ${formatProduction(prod)} has length ${prod.rhs.length} and contains terminal(s).\nReplaced: ${replacedTerminals.join(', ')}.\nNew production: ${formatProduction(newProd)}${
-          addedHelperRules.length > 0
-            ? `\nIntroduced helper rule(s): ${addedHelperRules.map(p => formatProduction(p)).join(', ')}`
-            : ' (reusing existing terminal helper variable)'
+          newHelperRulesAdded.length > 0
+            ? `\nIntroduced dynamic helper rule(s): ${newHelperRulesAdded.map(p => formatProduction(p)).join(', ')}`
+            : ' (reusing existing helper variable for this terminal)'
         }.`,
         examinedRule: prod,
         examinedVariable: prod.lhs,
@@ -179,9 +275,8 @@ export function convertToCnf(
       let previousLhs = prod.lhs;
 
       for (let i = 0; i < k - 2; i++) {
-        const freshHelper = generateFreshVariable(`H${binarizationCounter}`, currentGrammar.variables);
+        const freshHelper = allocateBinarizationHelper(currentGrammar, binarizationCounter);
         binarizationCounter++;
-        currentGrammar.variables.push(freshHelper);
         introducedHelpers.push(freshHelper);
 
         const binaryRule: Production = {
@@ -214,7 +309,7 @@ export function convertToCnf(
         subStep: 'Binarize Long Production',
         title: `Binarize Long Production: ${formatProduction(prod)}`,
         mathGoal: `Every production in CNF must have |RHS| ≤ 2. Decompose RHS of length ${k} into a cascade of binary productions.`,
-        explanation: `Production ${formatProduction(prod)} has ${k} symbols on RHS.\nDecomposed into ${chainAdded.length} binary rule(s):\n${chainAdded.map(p => formatProduction(p)).join('\n')}\n(Introduced helper non-terminal(s): ${introducedHelpers.join(', ')}).`,
+        explanation: `Production ${formatProduction(prod)} has ${k} symbols on RHS.\nDecomposed into ${chainAdded.length} binary rule(s):\n${chainAdded.map(p => formatProduction(p)).join('\n')}\n(Dynamically allocated helper non-terminal(s): ${introducedHelpers.join(', ')}).`,
         examinedRule: prod,
         examinedVariable: prod.lhs,
         beforeGrammar: beforeState,

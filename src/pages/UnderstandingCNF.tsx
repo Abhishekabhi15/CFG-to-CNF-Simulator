@@ -267,16 +267,16 @@ export const UnderstandingCNF: React.FC = () => {
             </p>
 
             <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-xs space-y-2">
-              <div className="font-bold text-slate-800">Transformation Rule:</div>
+              <div className="font-bold text-slate-800">Dynamic Helper Variable Allocation:</div>
               <p className="text-slate-600">
-                For every terminal <em>a</em> that appears in a production of length ≥ 2, introduce a helper variable <code className="font-mono font-bold">T_a</code> with rule <code className="font-mono font-bold">T_a → a</code>, and replace each occurrence of <em>a</em> in multi-symbol rules with <code className="font-mono font-bold">T_a</code>.
+                For every terminal <em>a</em> that appears in a production of length ≥ 2, we dynamically allocate a non-terminal helper variable from available symbols (such as <code className="font-mono font-bold">X, Y, Z, P, Q, R, U, W</code>) or reuse an existing dedicated rule (e.g., if <code className="font-mono font-bold">X → a</code> already exists in the grammar, we reuse <code className="font-mono font-bold">X</code>). We never collide with existing variables or the start symbol.
               </p>
             </div>
 
             <div className="bg-indigo-50/50 border border-indigo-100 rounded-xl p-4 text-xs font-mono">
               <div className="font-bold text-indigo-900 font-sans mb-1 text-xs">Example:</div>
               <div className="text-slate-500">Before: S → aD</div>
-              <div className="text-indigo-900 font-bold">After:  S → T_a D, T_a → a</div>
+              <div className="text-indigo-900 font-bold">After:  S → XD, X → a (Dynamic helper X assigned for terminal a)</div>
             </div>
           </section>
 
@@ -289,7 +289,7 @@ export const UnderstandingCNF: React.FC = () => {
               Binarization of Long Productions
             </h2>
             <p className="text-slate-600 text-sm leading-relaxed">
-              Every production with right-hand side length k &gt; 2 must be broken down into a cascade of binary productions of length 2.
+              Every production with right-hand side length k &gt; 2 must be broken down into a cascade of binary productions of length 2 using declared helper variables (such as <code className="font-mono font-bold">H1, H2</code> or available symbols from the preferred pool).
             </p>
 
             <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-xs space-y-2">
@@ -307,7 +307,7 @@ export const UnderstandingCNF: React.FC = () => {
             <div className="bg-indigo-50/50 border border-indigo-100 rounded-xl p-4 text-xs font-mono">
               <div className="font-bold text-indigo-900 font-sans mb-1 text-xs">Example:</div>
               <div className="text-slate-500">Before: S → ABC</div>
-              <div className="text-indigo-900 font-bold">After:  S → A H1, H1 → B C</div>
+              <div className="text-indigo-900 font-bold">After:  S → AH1, H1 → BC (Decomposed into strictly binary rules)</div>
             </div>
           </section>
 
