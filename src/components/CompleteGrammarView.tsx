@@ -8,16 +8,19 @@ import {
   ArrowRight,
   Sparkles,
   BarChart3,
-  FileText
+  FileText,
+  CheckCheck,
+  AlertTriangle
 } from 'lucide-react';
-import { Grammar, ConversionSummary, VerificationReport } from '../engine/types';
-import { formatGroupedProductions, formatProduction } from '../engine/grammarUtils';
+import { Grammar, ConversionSummary, VerificationReport, LanguagePreservationReport } from '../engine/types';
+import { formatGroupedProductions, groupProductionsByLhs } from '../engine/grammarUtils';
 
 interface CompleteGrammarViewProps {
   originalGrammar: Grammar;
   finalGrammar: Grammar;
   summary: ConversionSummary;
   verification: VerificationReport;
+  languagePreservation?: LanguagePreservationReport;
   onStartAgain: () => void;
   onTryAnotherGrammar: () => void;
 }
@@ -27,6 +30,7 @@ export const CompleteGrammarView: React.FC<CompleteGrammarViewProps> = ({
   finalGrammar,
   summary,
   verification,
+  languagePreservation,
   onStartAgain,
   onTryAnotherGrammar
 }) => {
@@ -34,6 +38,9 @@ export const CompleteGrammarView: React.FC<CompleteGrammarViewProps> = ({
 
   const finalGroupedLines = formatGroupedProductions(finalGrammar.productions);
   const originalGroupedLines = formatGroupedProductions(originalGrammar.productions);
+
+  const originalVarRowCount = groupProductionsByLhs(originalGrammar.productions).size;
+  const finalVarRowCount = groupProductionsByLhs(finalGrammar.productions).size;
 
   const copyFinalGrammar = () => {
     const text = finalGroupedLines.join('\n');
@@ -65,7 +72,7 @@ export const CompleteGrammarView: React.FC<CompleteGrammarViewProps> = ({
             Chomsky Normal Form Grammar G&apos; = (V&apos;, Σ, R&apos;, S&apos;)
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            The Context-Free Grammar has been successfully converted into Chomsky Normal Form while strictly preserving the language L(G).
+            The Context-Free Grammar has been transformed into Chomsky Normal Form while preserving the original language.
           </p>
         </div>
 
@@ -103,8 +110,12 @@ export const CompleteGrammarView: React.FC<CompleteGrammarViewProps> = ({
                 V = &#123;{originalGrammar.variables.join(', ')}&#125; &bull; S = {originalGrammar.startSymbol}
               </div>
             </div>
-            <span className="text-xs font-mono font-bold text-slate-600 bg-white px-2.5 py-1 rounded-md border border-slate-200">
-              {summary.originalProductionCount} rules
+            {/* Dynamic Badge: X variables · Y productions */}
+            <span
+              className="text-xs font-mono font-bold text-slate-700 bg-white px-2.5 py-1 rounded-md border border-slate-200"
+              title={`Grouped into ${originalVarRowCount} variable rows across ${summary.originalProductionCount} individual production alternatives`}
+            >
+              {originalVarRowCount} variables &bull; {summary.originalProductionCount} productions
             </span>
           </div>
 
@@ -114,6 +125,9 @@ export const CompleteGrammarView: React.FC<CompleteGrammarViewProps> = ({
                 {line}
               </div>
             ))}
+          </div>
+          <div className="bg-slate-50 px-4 py-1.5 border-t border-slate-100 text-[10px] text-slate-400">
+            One row per variable &bull; Alternating choices separated by &apos;|&apos;
           </div>
         </div>
 
@@ -128,8 +142,12 @@ export const CompleteGrammarView: React.FC<CompleteGrammarViewProps> = ({
                 V&apos; = &#123;{finalGrammar.variables.join(', ')}&#125; &bull; S&apos; = {finalGrammar.startSymbol}
               </div>
             </div>
-            <span className="text-xs font-mono font-bold text-indigo-700 bg-white px-2.5 py-1 rounded-md border border-indigo-200">
-              {summary.finalProductionCount} rules
+            {/* Dynamic Badge: X variables · Y productions */}
+            <span
+              className="text-xs font-mono font-bold text-indigo-700 bg-white px-2.5 py-1 rounded-md border border-indigo-200"
+              title={`Grouped into ${finalVarRowCount} variable rows across ${summary.finalProductionCount} individual production alternatives`}
+            >
+              {finalVarRowCount} variables &bull; {summary.finalProductionCount} productions
             </span>
           </div>
 
@@ -142,6 +160,9 @@ export const CompleteGrammarView: React.FC<CompleteGrammarViewProps> = ({
                 {line}
               </div>
             ))}
+          </div>
+          <div className="bg-indigo-50/40 px-4 py-1.5 border-t border-indigo-100 text-[10px] text-indigo-500">
+            Strict CNF forms: A &rarr; BC, A &rarr; a, or S&apos; &rarr; &epsilon;
           </div>
         </div>
       </div>
@@ -168,7 +189,9 @@ export const CompleteGrammarView: React.FC<CompleteGrammarViewProps> = ({
             <div className="text-lg font-bold text-slate-900 mt-0.5">
               {summary.originalProductionCount}
             </div>
-            <div className="text-[10px] text-slate-400 mt-0.5">unique in G</div>
+            <div className="text-[10px] text-slate-400 mt-0.5">
+              {summary.originalVariableRowCount} variable rows
+            </div>
           </div>
 
           {/* 2. Final CNF Rules */}
@@ -177,7 +200,9 @@ export const CompleteGrammarView: React.FC<CompleteGrammarViewProps> = ({
             <div className="text-lg font-bold text-indigo-950 mt-0.5">
               {summary.finalProductionCount}
             </div>
-            <div className="text-[10px] text-indigo-600 mt-0.5">unique in G&apos;</div>
+            <div className="text-[10px] text-indigo-600 mt-0.5">
+              {summary.finalVariableRowCount} variable rows
+            </div>
           </div>
 
           {/* 3. Net Rule Change */}
@@ -229,17 +254,17 @@ export const CompleteGrammarView: React.FC<CompleteGrammarViewProps> = ({
         </div>
       </div>
 
-      {/* CNF Verification Checklist */}
+      {/* CNF Structural & Syntax Verification Checklist */}
       <div className="space-y-4 pt-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <ShieldCheck className="w-5 h-5 text-indigo-600" />
             <div>
               <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
-                Independent CNF Verification Checklist
+                Independent CNF Structural &amp; Syntax Verification
               </h3>
               <p className="text-xs text-slate-500">
-                Rigorous mathematical check evaluating every production in G&apos; against formal CNF constraints.
+                Rigorous mathematical check evaluating every production in G&apos; against formal CNF syntax constraints.
               </p>
             </div>
           </div>
@@ -288,6 +313,64 @@ export const CompleteGrammarView: React.FC<CompleteGrammarViewProps> = ({
           ))}
         </div>
       </div>
+
+      {/* Separate Language Preservation & Derivation Testing */}
+      {languagePreservation && (
+        <div className="space-y-3 pt-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <CheckCheck className="w-5 h-5 text-indigo-600" />
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
+                  Language Preservation &amp; Derivation Equivalence
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Separately evaluated via bounded string derivations (distinct from CNF syntax validity).
+                </p>
+              </div>
+            </div>
+
+            <span
+              className={`px-3 py-1 rounded-full text-xs font-bold border ${
+                languagePreservation.isPreserved
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                  : 'bg-amber-50 text-amber-700 border-amber-200'
+              }`}
+            >
+              {languagePreservation.isPreserved
+                ? 'LANGUAGE EMPIRICALLY PRESERVED'
+                : 'PRESERVATION CHECK FAILED'}
+            </span>
+          </div>
+
+          <div
+            className={`p-4 rounded-xl border space-y-2 ${
+              languagePreservation.isPreserved
+                ? 'bg-emerald-50/20 border-emerald-200'
+                : 'bg-amber-50/40 border-amber-200'
+            }`}
+          >
+            <p className="text-xs text-slate-700 leading-relaxed font-medium">
+              {languagePreservation.details}
+            </p>
+            {languagePreservation.sampleStringsCNF.length > 0 && (
+              <div className="text-[11px] text-slate-500 font-mono">
+                Sample terminal strings tested in L(G): {languagePreservation.sampleStringsCNF.slice(0, 10).join(', ')}...
+              </div>
+            )}
+            {languagePreservation.missingInCNF.length > 0 && (
+              <div className="text-xs text-red-700 font-semibold">
+                Missing from CNF: {languagePreservation.missingInCNF.join(', ')}
+              </div>
+            )}
+            {languagePreservation.extraInCNF.length > 0 && (
+              <div className="text-xs text-red-700 font-semibold">
+                Extraneous in CNF: {languagePreservation.extraInCNF.join(', ')}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Footer Navigation */}
       <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-slate-100">

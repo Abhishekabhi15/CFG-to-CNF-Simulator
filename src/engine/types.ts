@@ -75,15 +75,29 @@ export interface VerificationReport {
   summary: string;
 }
 
+export interface LanguagePreservationReport {
+  tested: boolean;
+  isPreserved: boolean;
+  testedStringCount: number;
+  matchedStringCount: number;
+  sampleStringsOriginal: string[];
+  sampleStringsCNF: string[];
+  missingInCNF: string[];
+  extraInCNF: string[];
+  details: string;
+}
+
 export interface ConversionSummary {
   originalVariables: string[];
   originalTerminals: string[];
   originalStartSymbol: string;
   originalProductionCount: number; // Original unique production alternatives
+  originalVariableRowCount: number; // Number of grouped LHS variable rows in original grammar
   finalVariables: string[];
   finalTerminals: string[];
   finalStartSymbol: string;
   finalProductionCount: number; // Final CNF unique production alternatives
+  finalVariableRowCount: number; // Number of grouped LHS variable rows in final grammar
   netRuleChange: number; // Final CNF Rules − Original Rules
   productionsAddedCount: number; // In final grammar, absent from original
   productionsRemovedCount: number; // In original grammar, absent from final
@@ -102,6 +116,7 @@ export interface PipelineResult {
   finalGrammar: Grammar;
   summary: ConversionSummary;
   verification: VerificationReport;
+  languagePreservation: LanguagePreservationReport;
 }
 
 export interface GrammarPreset {

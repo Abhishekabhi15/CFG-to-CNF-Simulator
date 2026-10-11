@@ -12,7 +12,7 @@ import {
   Eye
 } from 'lucide-react';
 import { TransformationStep } from '../engine/types';
-import { formatProduction, formatGroupedProductions, formatRhs } from '../engine/grammarUtils';
+import { formatProduction, formatGroupedProductions, formatRhs, groupProductionsByLhs } from '../engine/grammarUtils';
 
 interface TransformationViewerProps {
   step: TransformationStep;
@@ -45,6 +45,9 @@ export const TransformationViewer: React.FC<TransformationViewerProps> = ({
     stageName,
     subStep
   } = step;
+
+  const beforeVarRowCount = groupProductionsByLhs(beforeGrammar.productions).size;
+  const afterVarRowCount = groupProductionsByLhs(afterGrammar.productions).size;
 
   const examinedId = examinedRule ? examinedRule.id : null;
   const removedIds = new Set(removedProductions.map(p => p.id));
@@ -244,8 +247,8 @@ export const TransformationViewer: React.FC<TransformationViewerProps> = ({
                 <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
                   Before State
                 </span>
-                <span className="text-xs font-mono font-medium text-slate-500">
-                  {beforeGrammar.productions.length} rules
+                <span className="text-xs font-mono font-medium text-slate-600 bg-white px-2 py-0.5 rounded border border-slate-200">
+                  {beforeVarRowCount} variables &bull; {beforeGrammar.productions.length} productions
                 </span>
               </div>
               <div className="p-4 space-y-1 font-mono text-xs sm:text-sm max-h-72 overflow-y-auto">
@@ -291,8 +294,8 @@ export const TransformationViewer: React.FC<TransformationViewerProps> = ({
                 <span className="text-xs font-bold text-indigo-700 uppercase tracking-wider">
                   After State
                 </span>
-                <span className="text-xs font-mono font-medium text-indigo-600">
-                  {afterGrammar.productions.length} rules
+                <span className="text-xs font-mono font-medium text-indigo-700 bg-white px-2 py-0.5 rounded border border-indigo-200">
+                  {afterVarRowCount} variables &bull; {afterGrammar.productions.length} productions
                 </span>
               </div>
               <div className="p-4 space-y-1 font-mono text-xs sm:text-sm max-h-72 overflow-y-auto">
@@ -338,7 +341,7 @@ export const TransformationViewer: React.FC<TransformationViewerProps> = ({
                       : 'text-slate-500 hover:text-slate-800'
                   }`}
                 >
-                  Before State ({beforeGrammar.productions.length})
+                  Before State ({beforeVarRowCount} vars &bull; {beforeGrammar.productions.length} prods)
                 </button>
                 <button
                   type="button"
@@ -349,7 +352,7 @@ export const TransformationViewer: React.FC<TransformationViewerProps> = ({
                       : 'text-slate-500 hover:text-slate-800'
                   }`}
                 >
-                  After State ({afterGrammar.productions.length})
+                  After State ({afterVarRowCount} vars &bull; {afterGrammar.productions.length} prods)
                 </button>
               </div>
             </div>
